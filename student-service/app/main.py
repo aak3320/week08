@@ -69,7 +69,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    # student-service
     title="KoalaTech University Student Service",
     description=(
         "Manages student records and student profile photos "
