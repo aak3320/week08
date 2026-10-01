@@ -26,6 +26,16 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
       ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
 
+      TF_VAR_location: "Australia East"
+      TF_VAR_resource_group_name: "week8"
+      TF_VAR_acr_name: ${{ vars.ACR_NAME }}
+      TF_VAR_storage_account_name: "week8001"
+      TF_VAR_aks_cluster_name: ${{ vars.AKS_CLUSTER_NAME }}
+      TF_VAR_aks_dns_prefix: "koalatech"
+      TF_VAR_aks_node_count: "3"
+      TF_VAR_aks_node_vm_size: "Standard_D2s_v3"
+      TF_VAR_environment: "development"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
