@@ -40,13 +40,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # NEW
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # NEW
       - name: Configure Terraform backend access
         shell: bash
         run: |
@@ -58,13 +59,9 @@ jobs:
 
           echo "ARM_ACCESS_KEY=$ARM_ACCESS_KEY" >> "$GITHUB_ENV"
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
       - name: Terraform Init
         run: terraform init
 
-      # NEW
       - name: Import existing infrastructure into Terraform state
         if: inputs.action == 'plan' || inputs.action == 'apply'
         shell: bash
@@ -155,6 +152,10 @@ jobs:
             echo "AcrPull role assignment was not found."
             exit 1
           fi
+
+      - name: Verify Terraform state
+        if: inputs.action == 'plan' || inputs.action == 'apply'
+        run: terraform state list
 
       - name: Terraform Validate
         run: terraform validate
