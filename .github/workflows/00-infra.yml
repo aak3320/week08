@@ -92,11 +92,7 @@ jobs:
             --query "id" \
             -o tsv)
 
-          AKS_ID=$(az aks show \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$AKS_NAME" \
-            --query "id" \
-            -o tsv)
+          AKS_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.ContainerService/managedClusters/$AKS_NAME"
 
           STORAGE_ID=$(az storage account show \
             --resource-group "$RESOURCE_GROUP" \
