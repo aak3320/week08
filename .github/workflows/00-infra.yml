@@ -40,11 +40,121 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # NEW
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # NEW
+      - name: Configure Terraform backend access
+        shell: bash
+        run: |
+          ARM_ACCESS_KEY=$(az storage account keys list \
+            --resource-group "$TF_VAR_resource_group_name" \
+            --account-name "$TF_VAR_storage_account_name" \
+            --query "[0].value" \
+            -o tsv)
+
+          echo "ARM_ACCESS_KEY=$ARM_ACCESS_KEY" >> "$GITHUB_ENV"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
+
+      # NEW
+      - name: Import existing infrastructure into Terraform state
+        if: inputs.action == 'plan' || inputs.action == 'apply'
+        shell: bash
+        run: |
+          import_if_missing() {
+            local address="$1"
+            local resource_id="$2"
+
+            if terraform state show "$address" >/dev/null 2>&1; then
+              echo "$address already exists in Terraform state"
+            else
+              echo "Importing $address"
+              terraform import "$address" "$resource_id"
+            fi
+          }
+
+          SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
+          RESOURCE_GROUP="$TF_VAR_resource_group_name"
+          ACR_NAME="$TF_VAR_acr_name"
+          STORAGE_ACCOUNT="$TF_VAR_storage_account_name"
+          AKS_NAME="$TF_VAR_aks_cluster_name"
+
+          RG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
+
+          ACR_ID=$(az acr show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$ACR_NAME" \
+            --query "id" \
+            -o tsv)
+
+          AKS_ID=$(az aks show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$AKS_NAME" \
+            --query "id" \
+            -o tsv)
+
+          STORAGE_ID=$(az storage account show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$STORAGE_ACCOUNT" \
+            --query "id" \
+            -o tsv)
+
+          LECTURER_CONTAINER_ID="$STORAGE_ID/blobServices/default/containers/lecturer-profile-photos"
+          STUDENT_CONTAINER_ID="$STORAGE_ID/blobServices/default/containers/student-profile-photos"
+
+          KUBELET_OBJECT_ID=$(az aks show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$AKS_NAME" \
+            --query "identityProfile.kubeletidentity.objectId" \
+            -o tsv)
+
+          ACR_PULL_ROLE_ID=$(az role assignment list \
+            --assignee "$KUBELET_OBJECT_ID" \
+            --scope "$ACR_ID" \
+            --role "AcrPull" \
+            --query "[0].id" \
+            -o tsv)
+
+          import_if_missing \
+            "azurerm_resource_group.rg" \
+            "$RG_ID"
+
+          import_if_missing \
+            "azurerm_container_registry.acr" \
+            "$ACR_ID"
+
+          import_if_missing \
+            "azurerm_kubernetes_cluster.aks" \
+            "$AKS_ID"
+
+          import_if_missing \
+            "azurerm_storage_account.storage_account" \
+            "$STORAGE_ID"
+
+          import_if_missing \
+            "azurerm_storage_container.lecturer_profile_photo" \
+            "$LECTURER_CONTAINER_ID"
+
+          import_if_missing \
+            "azurerm_storage_container.student_profile_photo" \
+            "$STUDENT_CONTAINER_ID"
+
+          if [ -n "$ACR_PULL_ROLE_ID" ]; then
+            import_if_missing \
+              "azurerm_role_assignment.acr_pull" \
+              "$ACR_PULL_ROLE_ID"
+          else
+            echo "AcrPull role assignment was not found."
+            exit 1
+          fi
 
       - name: Terraform Validate
         run: terraform validate
