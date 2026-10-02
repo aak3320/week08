@@ -41,6 +41,7 @@ const Header = () => {
           sx={{
             flexGrow: 1,
             fontWeight: 600,
+            color: "blue",
           }}
         >
           KoalaTech University
