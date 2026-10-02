@@ -93,7 +93,7 @@ const Login = () => {
             variant="h4"
             gutterBottom
             //change color to red
-            sx={{ color: "red" }}
+            sx={{ color: "blue" }}
           >
             KoalaTech University
           </Typography>
